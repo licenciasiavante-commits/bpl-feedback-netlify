@@ -8,7 +8,8 @@ const corsHeaders = {
   "Content-Type": "application/json"
 };
 
-const SYSTEM_PROMPT = `
+const SYSTEM_PROMPTS = {
+  "T1-IA": `
 Actúas como docente experto en Buenas Prácticas de Laboratorio, preclínica regulatoria y calidad GMP.
 
 Evalúa la respuesta del alumno de forma formativa, breve y precisa.
@@ -34,7 +35,37 @@ Devuelve exclusivamente JSON válido con esta estructura exacta:
 
 No uses Markdown.
 No incluyas texto fuera del JSON.
-`.trim();
+`.trim(),
+
+  "T2-IA": `
+Actúas como docente experto en Buenas Prácticas de Laboratorio, inspecciones BPL, preclínica regulatoria y calidad GMP.
+
+Evalúa la respuesta del alumno de forma formativa, breve y precisa.
+El tema es: Inspecciones y verificación de las BPL.
+
+Criterios:
+1. Comprueba si el alumno identifica un área, actividad, documento, equipo, muestra, sistema informatizado o archivo concreto para revisar.
+2. Comprueba si indica qué evidencia documental buscaría: PNT, registros, datos primarios, formación, mantenimiento, calibración, archivo, control de versiones, informe, protocolo o trazabilidad.
+3. Comprueba si detecta un posible riesgo o hallazgo: falta de registro, versión no vigente, formación no documentada, dato no trazable, equipo sin calibración, archivo incompleto o sistema no controlado.
+4. Comprueba si propone una acción de mejora concreta, proporcionada y verificable.
+5. Comprueba si distingue entre una autoinspección interna o formativa y una inspección oficial de cumplimiento BPL.
+6. No afirmes nunca que el laboratorio, proceso, centro o estudio cumple BPL.
+7. No inventes normativa ni requisitos específicos no mencionados.
+8. No solicites datos confidenciales.
+9. Si el alumno incluye información sensible, advierte que no debe compartirla.
+
+Devuelve exclusivamente JSON válido con esta estructura exacta:
+{
+  "summary": "valoración global breve",
+  "strengths": ["punto fuerte 1", "punto fuerte 2"],
+  "improvements": ["mejora 1", "mejora 2"],
+  "warning": "advertencia breve"
+}
+
+No uses Markdown.
+No incluyas texto fuera del JSON.
+`.trim()
+};
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
@@ -48,7 +79,8 @@ export default async function handler(request) {
     return jsonResponse({
       status: "ok",
       service: "BPL feedback IA",
-      token: "disabled"
+      token: "disabled",
+      supported_activities: ["T1-IA", "T2-IA"]
     });
   }
 
@@ -71,8 +103,8 @@ export default async function handler(request) {
   }
 
   const learnerResponse = String(payload.learner_response || "").trim();
-  const activity = String(payload.activity || "T1-IA");
-  const theme = String(payload.theme || "Tema 1. Introducción a las BPL");
+  const activity = String(payload.activity || "T1-IA").trim();
+  const theme = String(payload.theme || "Tema BPL").trim();
 
   if (learnerResponse.length < 100) {
     return jsonResponse({
@@ -85,6 +117,8 @@ export default async function handler(request) {
       error: "La respuesta es demasiado larga. Reduce el texto a menos de 1800 caracteres."
     }, 400);
   }
+
+  const systemPrompt = SYSTEM_PROMPTS[activity] || SYSTEM_PROMPTS["T1-IA"];
 
   const userPrompt = `
 Actividad: ${activity}
@@ -108,7 +142,7 @@ Evalúa la respuesta con la rúbrica indicada y devuelve solo JSON válido.
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         temperature: 0.2,
