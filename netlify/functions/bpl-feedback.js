@@ -3,7 +3,7 @@ const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, X-Course-Token",
+  "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
   "Content-Type": "application/json"
 };
@@ -47,7 +47,8 @@ export default async function handler(request) {
   if (request.method === "GET") {
     return jsonResponse({
       status: "ok",
-      service: "BPL feedback IA"
+      service: "BPL feedback IA",
+      token: "disabled"
     });
   }
 
@@ -56,17 +57,9 @@ export default async function handler(request) {
   }
 
   const apiKey = process.env.NVIDIA_API_KEY;
-  const courseToken = process.env.COURSE_TOKEN || "";
 
   if (!apiKey) {
     return jsonResponse({ error: "Falta NVIDIA_API_KEY en Netlify." }, 500);
-  }
-
-  if (courseToken) {
-    const receivedToken = request.headers.get("x-course-token") || "";
-    if (receivedToken !== courseToken) {
-      return jsonResponse({ error: "Token de curso no válido." }, 403);
-    }
   }
 
   let payload;
