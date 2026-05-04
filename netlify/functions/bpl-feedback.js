@@ -3,9 +3,11 @@ const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-  "Content-Type": "application/json"
+  "Access-Control-Max-Age": "86400",
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "no-store"
 };
 
 const SYSTEM_PROMPTS = {
@@ -69,8 +71,8 @@ No incluyas texto fuera del JSON.
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
+    return new Response(JSON.stringify({ status: "ok", preflight: true }), {
+      status: 200,
       headers: corsHeaders
     });
   }
@@ -97,7 +99,7 @@ export default async function handler(request) {
   let payload;
 
   try {
-    payload = await request.json();
+    payload = await readPayload(request);
   } catch {
     return jsonResponse({ error: "El cuerpo de la petición no es JSON válido." }, 400);
   }
@@ -174,6 +176,16 @@ Evalúa la respuesta con la rúbrica indicada y devuelve solo JSON válido.
       details: String(error.message || error)
     }, 500);
   }
+}
+
+async function readPayload(request) {
+  const text = await request.text();
+
+  if (!text) {
+    return {};
+  }
+
+  return JSON.parse(text);
 }
 
 function jsonResponse(data, status = 200) {
